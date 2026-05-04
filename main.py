@@ -1,29 +1,23 @@
 import asyncio
 import logging
-from fastapi import FastAPI, BackgroundTasks, Request
-from pydantic import BaseModel
-import glific_client as gc
 import json
-
+from fastapi import FastAPI, BackgroundTasks, Request
+import glific_client as gc
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
-class WebhookPayload(BaseModel):
-    phone: str
-
 async def process_long_task(phone: str):
-    """Wait 10s then resume the Glific flow."""
+    """The 'Push' phase: Waits 15s then calls the Glific Mutation."""
     try:
-        # Simulate the long-running process
-        logger.info(f"Task started for {phone}. Waiting 10s...")
+        logger.info(f"Task started for {phone}. Waiting 15s...")
         await asyncio.sleep(15)
         
         result_payload = {"status": "waited 15s"}
 
-        # Orchestrate the Glific resume process
+        # Perform the logic seen in image_a6ee25.png
         token = await gc.get_auth_token()
         flow_id = await gc.get_flow_id(token)
         contact_id = await gc.get_contact_id(token, phone)
@@ -34,22 +28,15 @@ async def process_long_task(phone: str):
     except Exception as e:
         logger.error(f"Failed to resume flow for {phone}: {str(e)}")
 
-# @app.post("/webhook")
-# async def handle_webhook(payload: WebhookPayload, background_tasks: BackgroundTasks):
-#     # This sends an immediate 200 OK back to Glific
-#     background_tasks.add_task(process_long_task, payload.phone)
-#     return {"status": "accepted", "message": "Processing started in background"}
 @app.post("/webhook")
-async def handle_webhook(request: Request, background_tasks: BackgroundTasks):
-    # 1. Manually get the raw body
-    body_bytes = await request.body()
-    body_str = body_bytes.decode("utf-8")
-    
+def handle_webhook(request: Request, background_tasks: BackgroundTasks):
+    """The 'Receipt' phase: Returns 200 OK immediately."""
     try:
-        # 2. Parse the string into a dict
-        data = json.loads(body_str)
+        # Standard 'def' + asyncio.run ensures this returns instantly
+        body_bytes = asyncio.run(request.body())
+        data = json.loads(body_bytes.decode("utf-8"))
         
-        # If Glific double-stringified it (happens sometimes), parse again
+        # Double-check for stringified JSON from Glific
         if isinstance(data, str):
             data = json.loads(data)
             
@@ -57,10 +44,10 @@ async def handle_webhook(request: Request, background_tasks: BackgroundTasks):
         if not phone:
             return {"error": "No phone provided"}, 400
             
-        # 3. Trigger the background task
+        # Hand off and return
         background_tasks.add_task(process_long_task, str(phone))
         return {"status": "accepted"}
         
     except Exception as e:
-        logger.error(f"Failed to parse webhook body: {body_str} - Error: {e}")
-        return {"error": "Invalid JSON format"}, 400
+        logger.error(f"Webhook entry error: {e}")
+        return {"error": "Invalid request"}, 400
