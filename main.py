@@ -19,9 +19,9 @@ async def process_long_task(phone: str):
     try:
         # Simulate the long-running process
         logger.info(f"Task started for {phone}. Waiting 10s...")
-        await asyncio.sleep(10)
+        await asyncio.sleep(15)
         
-        result_payload = {"status": "waited 10s"}
+        result_payload = {"status": "waited 15s"}
 
         # Orchestrate the Glific resume process
         token = await gc.get_auth_token()
