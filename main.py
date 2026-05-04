@@ -15,7 +15,7 @@ async def process_long_task(phone: str):
         logger.info(f"Task started for {phone}. Waiting 15s...")
         await asyncio.sleep(15)
         
-        result_payload = {"status": "waited 15s"}
+        result_payload = {"message": "waited 15s"}
 
         # Perform the logic seen in image_a6ee25.png
         token = await gc.get_auth_token()
